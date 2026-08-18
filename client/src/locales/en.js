@@ -6,6 +6,7 @@ export default {
     orders: 'Orders',
     finance: 'Finance',
     demandForecast: 'Demand Forecast',
+    restocking: 'Restocking',
     companyName: 'Catalyst Components',
     subtitle: 'Inventory Management System'
   },
@@ -106,6 +107,7 @@ export default {
     title: 'Orders',
     description: 'View and manage customer orders',
     allOrders: 'All Orders',
+    submittedOrders: 'Submitted Orders',
     totalOrders: 'Total Orders',
     totalRevenue: 'Total Revenue',
     avgOrderValue: 'Avg Order Value',
@@ -125,6 +127,8 @@ export default {
       totalValue: 'Total Value',
       status: 'Status',
       expectedDelivery: 'Expected Delivery',
+      submitted: 'Submitted',
+      leadTime: 'Lead Time',
       actualDelivery: 'Actual Delivery'
     }
   },
@@ -188,6 +192,33 @@ export default {
     }
   },
 
+  // Restocking
+  restocking: {
+    title: 'Restocking',
+    description: 'Set a budget and order the items your forecast says you will run short of',
+    budget: 'Available Budget',
+    recommended: 'Recommended Items',
+    selectedItems: 'Selected Items',
+    totalCost: 'Total Cost',
+    remaining: 'Budget Remaining',
+    longestLeadTime: 'Longest Lead Time',
+    placeOrder: 'Place Order',
+    submitting: 'Submitting...',
+    orderPlaced: 'Order {orderNumber} submitted, expected {date}',
+    noneAffordable: 'No items fit this budget',
+    noCandidates: 'No items need restocking for the current filters',
+    days: 'days',
+    table: {
+      shortfall: 'Shortfall',
+      onHand: 'On Hand',
+      orderQty: 'Order Qty',
+      unitCost: 'Unit Cost',
+      lineCost: 'Line Cost',
+      leadTime: 'Lead Time',
+      urgency: 'Urgency'
+    }
+  },
+
   // Filters
   filters: {
     timePeriod: 'Time Period',
@@ -204,6 +235,7 @@ export default {
     shipped: 'Shipped',
     processing: 'Processing',
     backordered: 'Backordered',
+    submitted: 'Submitted',
     inStock: 'In Stock',
     lowStock: 'Low Stock',
     adequate: 'Adequate'
