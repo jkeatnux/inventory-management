@@ -2,6 +2,18 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8001/api";
 
+// Build the warehouse/category/status/month query string shared by the
+// order-derived endpoints. "all" means "no filter", so it is omitted.
+function buildOrderParams(filters = {}) {
+  const params = new URLSearchParams();
+  for (const key of ["warehouse", "category", "status", "month"]) {
+    if (filters[key] && filters[key] !== "all") {
+      params.append(key, filters[key]);
+    }
+  }
+  return params.toString();
+}
+
 export const api = {
   async getInventory(filters = {}) {
     const params = new URLSearchParams();
@@ -12,6 +24,21 @@ export const api = {
 
     const response = await axios.get(
       `${API_BASE_URL}/inventory?${params.toString()}`,
+    );
+    return response.data;
+  },
+
+  // Reports read from orders, so they accept the same four filters as getOrders.
+  async getQuarterlyReports(filters = {}) {
+    const response = await axios.get(
+      `${API_BASE_URL}/reports/quarterly?${buildOrderParams(filters)}`,
+    );
+    return response.data;
+  },
+
+  async getMonthlyTrends(filters = {}) {
+    const response = await axios.get(
+      `${API_BASE_URL}/reports/monthly-trends?${buildOrderParams(filters)}`,
     );
     return response.data;
   },

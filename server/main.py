@@ -15,6 +15,14 @@ QUARTER_MAP = {
     'Q4-2025': ['2025-10', '2025-11', '2025-12']
 }
 
+# Reverse lookup: '2025-04' -> 'Q2-2025'. Derived from QUARTER_MAP so the quarter
+# boundaries are defined in exactly one place.
+MONTH_TO_QUARTER = {
+    month: quarter
+    for quarter, months in QUARTER_MAP.items()
+    for month in months
+}
+
 # Supplier lead time in days, by product category. Fixed per-category rather than per-SKU
 # because the seed data has no lead-time field; change here to retune delivery estimates.
 CATEGORY_LEAD_TIME_DAYS = {
@@ -136,6 +144,20 @@ class CreatePurchaseOrderRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: str
     notes: Optional[str] = None
+
+class QuarterlyReport(BaseModel):
+    quarter: str
+    total_orders: int
+    total_revenue: float
+    delivered_orders: int
+    avg_order_value: float
+    fulfillment_rate: float
+
+class MonthlyTrend(BaseModel):
+    month: str
+    order_count: int
+    revenue: float
+    delivered_count: int
 
 class RestockCandidate(BaseModel):
     sku: str
@@ -290,24 +312,22 @@ def get_recent_transactions():
     """Get recent transactions"""
     return recent_transactions
 
-@app.get("/api/reports/quarterly")
-def get_quarterly_reports():
-    """Get quarterly performance reports"""
-    # Calculate quarterly statistics from orders
-    quarters = {}
+@app.get("/api/reports/quarterly", response_model=List[QuarterlyReport])
+def get_quarterly_reports(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    month: Optional[str] = None
+):
+    """Get quarterly performance reports, honouring the same filters as /api/orders."""
+    filtered_orders = apply_filters(orders, warehouse, category, status)
+    filtered_orders = filter_by_month(filtered_orders, month)
 
-    for order in orders:
-        order_date = order.get('order_date', '')
-        # Determine quarter
-        if '2025-01' in order_date or '2025-02' in order_date or '2025-03' in order_date:
-            quarter = 'Q1-2025'
-        elif '2025-04' in order_date or '2025-05' in order_date or '2025-06' in order_date:
-            quarter = 'Q2-2025'
-        elif '2025-07' in order_date or '2025-08' in order_date or '2025-09' in order_date:
-            quarter = 'Q3-2025'
-        elif '2025-10' in order_date or '2025-11' in order_date or '2025-12' in order_date:
-            quarter = 'Q4-2025'
-        else:
+    quarters = {}
+    for order in filtered_orders:
+        # Orders carry a full YYYY-MM-DD date; the first 7 chars give the month key.
+        quarter = MONTH_TO_QUARTER.get(order.get('order_date', '')[:7])
+        if not quarter:
             continue
 
         if quarter not in quarters:
@@ -316,7 +336,8 @@ def get_quarterly_reports():
                 'total_orders': 0,
                 'total_revenue': 0,
                 'delivered_orders': 0,
-                'avg_order_value': 0
+                'avg_order_value': 0,
+                'fulfillment_rate': 0
             }
 
         quarters[quarter]['total_orders'] += 1
@@ -324,45 +345,50 @@ def get_quarterly_reports():
         if order.get('status') == 'Delivered':
             quarters[quarter]['delivered_orders'] += 1
 
-    # Calculate averages and fulfillment rate
     result = []
-    for q, data in quarters.items():
+    for data in quarters.values():
+        # A quarter only exists here because at least one order landed in it, so
+        # total_orders is never zero - but guard anyway rather than risk ZeroDivisionError.
         if data['total_orders'] > 0:
             data['avg_order_value'] = round(data['total_revenue'] / data['total_orders'], 2)
             data['fulfillment_rate'] = round((data['delivered_orders'] / data['total_orders']) * 100, 1)
         result.append(data)
 
-    # Sort by quarter
     result.sort(key=lambda x: x['quarter'])
     return result
 
-@app.get("/api/reports/monthly-trends")
-def get_monthly_trends():
-    """Get month-over-month trends"""
-    months = {}
+@app.get("/api/reports/monthly-trends", response_model=List[MonthlyTrend])
+def get_monthly_trends(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    month: Optional[str] = None
+):
+    """Get month-over-month trends, honouring the same filters as /api/orders."""
+    filtered_orders = apply_filters(orders, warehouse, category, status)
+    filtered_orders = filter_by_month(filtered_orders, month)
 
-    for order in orders:
+    months = {}
+    for order in filtered_orders:
         order_date = order.get('order_date', '')
         if not order_date:
             continue
 
-        # Extract month (format: YYYY-MM-DD)
-        month = order_date[:7]  # Gets YYYY-MM
+        month_key = order_date[:7]  # YYYY-MM
 
-        if month not in months:
-            months[month] = {
-                'month': month,
+        if month_key not in months:
+            months[month_key] = {
+                'month': month_key,
                 'order_count': 0,
                 'revenue': 0,
                 'delivered_count': 0
             }
 
-        months[month]['order_count'] += 1
-        months[month]['revenue'] += order.get('total_value', 0)
+        months[month_key]['order_count'] += 1
+        months[month_key]['revenue'] += order.get('total_value', 0)
         if order.get('status') == 'Delivered':
-            months[month]['delivered_count'] += 1
+            months[month_key]['delivered_count'] += 1
 
-    # Convert to list and sort
     result = list(months.values())
     result.sort(key=lambda x: x['month'])
     return result
